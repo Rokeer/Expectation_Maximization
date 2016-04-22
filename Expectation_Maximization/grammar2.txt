@@ -1,0 +1,15 @@
+of with visited a friend
+S NP VP PP VB DT NN P
+S
+1.0  S -> NP VP
+0.4 NP -> DT NN
+0.6 NP -> NP PP
+0.1 VP -> VB NP
+0.2 VP -> VB PP
+0.7 VP -> VP PP
+1.0 PP -> P NP 
+0.6  P -> of
+0.4  P -> with
+1.0 VB -> visited
+1.0 DT -> a
+1.0 NN -> friend
