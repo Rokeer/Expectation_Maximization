@@ -1,0 +1,11 @@
+b x
+S A B X Y
+S
+0.7 S -> A X
+0.3 S -> A Y
+0.1 A -> A B
+0.2 A -> B A
+0.7 A -> B B
+1.0 B -> b
+1.0 X -> x
+1.0 Y -> x
