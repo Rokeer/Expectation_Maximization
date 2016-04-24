@@ -7,7 +7,7 @@ S
 0.1 VP -> VB NP
 0.2 VP -> VB PP
 0.7 VP -> VP PP
-1.0 PP -> P NP
+1.0 PP -> P NP 
 0.6  P -> of
 0.4  P -> with
 1.0 VB -> visited

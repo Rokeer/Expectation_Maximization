@@ -9,31 +9,53 @@ import java.util.Map;
 import java.util.Random;
 
 public class Main {
-	public static boolean generateGrammer = false;
+	public static boolean generateGrammer = true;
+
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String grammarFile = "grammar1.txt";
-		String updateGrammarFile = "grammar1_up.txt";
-		String trainingFile = "train1.txt";
-		String testFile = "test1.txt";
-		app1(grammarFile, trainingFile, updateGrammarFile);
-		// app2(grammarFile, trainingFile, updateGrammarFile);
-		// app3(grammarFile, trainingFile, updateGrammarFile);
+		if (args.length != 4) {
+			System.out.println("You should use 4 parameters to run this program.");
+			System.out.println("The first parameter is grammar file.");
+			System.out.println("The second parameter is train file.");
+			System.out.println("The third parameter is test file.");
+			System.out.println("The fourth paramater is indicating which application you want to run {1, 2, 3}.");
+			
+			System.exit(0);
+		}
+		String grammarFile = args[0];
+		String updateGrammarFile = "grammar_updated.txt";
+		String trainingFile = args[1];
+		String testFile = args[2];
+		String wordlistFile = "wordlist.txt";
+		switch (args[3]) {
+		case "1":
+			app1(grammarFile, trainingFile, testFile, updateGrammarFile);
+			break;
+		case "2":
+			app2(grammarFile, trainingFile, testFile, updateGrammarFile);
+			break;
+		case "3":
+			app3(grammarFile, trainingFile, testFile, updateGrammarFile, wordlistFile);
+		}
+		// app1(grammarFile, trainingFile, testFile, updateGrammarFile);
+		// app2(grammarFile, trainingFile, testFile, updateGrammarFile);
+		// app3(grammarFile, trainingFile, testFile, updateGrammarFile,
+		// wordlistFile);
 
 	}
 
-	public static void app1(String grammarFile, String trainingFile, String updateGrammarFile) {
+	public static void app1(String grammarFile, String trainingFile, String testFile, String updateGrammarFile) {
 		if (generateGrammer) {
 			ArrayList<String> terminals = new ArrayList<String>();
 			terminals.add("a");
 			terminals.add("b");
 			createGrammars(grammarFile, 5, terminals);
 		}
-		app2(grammarFile, trainingFile, updateGrammarFile);
-		
+		app2(grammarFile, trainingFile, testFile, updateGrammarFile);
+
 	}
 
-	public static void app2(String grammarFile, String trainingFile, String updateGrammarFile) {
+	public static void app2(String grammarFile, String trainingFile, String testFile, String updateGrammarFile) {
 		ArrayList<String> terminals = new ArrayList<String>();
 		ArrayList<String> nonTerminals = new ArrayList<String>();
 		HashMap<String, ArrayList<String>> productionRulesLKey = new HashMap<String, ArrayList<String>>();
@@ -41,30 +63,72 @@ public class Main {
 		HashMap<String, Double> distribution = new HashMap<String, Double>();
 		String start = readGrammar(grammarFile, terminals, nonTerminals, productionRulesLKey, productionRulesRKey,
 				distribution);
-		ArrayList<ArrayList<String>> training = readTraining(trainingFile);
+		ArrayList<ArrayList<String>> training = readSent(trainingFile);
+		ArrayList<ArrayList<String>> test = readSent(testFile);
 		ArrayList<String> sent;
-		for (int itr = 0; itr < 100; itr++) {
+		double eva = 0.0;
+		double oldEva = 1.0;
+		boolean stop = false;
+		for (int itr = 0; itr < 100 && !stop; itr++) {
 			HashMap<String, Double> eStep = new HashMap<String, Double>();
 			for (int i = 0; i < training.size(); i++) {
 				sent = training.get(i);
 				Cell[][] inside = calInside(sent, productionRulesRKey, distribution);
 				if (inside[0][sent.size()].getProbability(start) > 0) {
 					Cell[][] outside = calOutside(sent, productionRulesLKey, distribution, inside, start);
-					expectation(inside, outside, terminals, nonTerminals, productionRulesLKey, distribution, eStep, sent,
-							start);
+					expectation(inside, outside, terminals, nonTerminals, productionRulesLKey, distribution, eStep,
+							sent, start);
 				} else {
-					System.out.println(sent);
+					System.out.println(sent + "*");
 				}
-				
+
 			}
 			maximization(eStep, nonTerminals, productionRulesLKey, distribution);
-			saveGrammars(updateGrammarFile, terminals, nonTerminals, distribution);
-			System.out.println(distribution);
+
+			eva = evaluation(test, distribution, start, productionRulesRKey, true);
+			eva = evaluation(training, distribution, start, productionRulesRKey, false);
+
+			if (eva > oldEva || oldEva == 1.0) {
+				saveGrammars(updateGrammarFile, terminals, nonTerminals, distribution, start);
+				System.out.println("Average Log Probability: " + eva);
+
+				if (eva - oldEva < 0.000000001 && oldEva != 1.0) {
+					System.out.println("Done!");
+					stop = true;
+				}
+				oldEva = eva;
+			} else {
+				System.out.println("Done!");
+				stop = true;
+			}
+
 		}
 	}
 
-	public static void app3(String grammarFile, String trainingFile, String updateGrammarFile) {
+	public static void app3(String grammarFile, String trainingFile, String testFile, String updateGrammarFile,
+			String wordlistFile) {
+		if (generateGrammer) {
+			ArrayList<String> terminals = new ArrayList<String>();
+			terminals = readWordList(wordlistFile);
+			createGrammars(grammarFile, 10, terminals);
+		}
+		app2(grammarFile, trainingFile, testFile, updateGrammarFile);
+	}
 
+	public static double evaluation(ArrayList<ArrayList<String>> test, HashMap<String, Double> distribution,
+			String start, HashMap<String, ArrayList<String>> productionRulesRKey, boolean flag) {
+		ArrayList<String> sent;
+		double result = 0.0;
+		for (int i = 0; i < test.size(); i++) {
+			sent = test.get(i);
+			Cell[][] inside = calInside(sent, productionRulesRKey, distribution);
+			result = result + Math.log(inside[0][sent.size()].getProbability(start));
+			if (flag) {
+				System.out.println(sent + " " + inside[0][sent.size()].getProbability(start));
+			}
+
+		}
+		return result;
 	}
 
 	public static void maximization(HashMap<String, Double> eStep, ArrayList<String> nonTerminals,
@@ -193,6 +257,9 @@ public class Main {
 			int j = i + 1;
 			String word = sent.get(i);
 			ArrayList<String> heads = productionRulesRKey.get(word);
+			if (heads == null) {
+				System.out.println(word);
+			}
 			for (int m = 0; m < heads.size(); m++) {
 				String lhs = heads.get(m);
 				String rule = lhs + " -> " + word;
@@ -233,10 +300,28 @@ public class Main {
 		return inside;
 	}
 
-	public static ArrayList<ArrayList<String>> readTraining(String trainingFile) {
-		ArrayList<ArrayList<String>> training = new ArrayList<ArrayList<String>>();
+	public static ArrayList<String> readWordList(String wrodlist) {
+		ArrayList<String> terminals = new ArrayList<String>();
 		try {
-			BufferedReader in = new BufferedReader(new FileReader(trainingFile));
+			BufferedReader in = new BufferedReader(new FileReader(wrodlist));
+			String line = in.readLine();
+
+			while (line != null) {
+				line = line.trim();
+				terminals.add(line.toLowerCase());
+				line = in.readLine();
+			}
+			in.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return terminals;
+	}
+
+	public static ArrayList<ArrayList<String>> readSent(String File) {
+		ArrayList<ArrayList<String>> sent = new ArrayList<ArrayList<String>>();
+		try {
+			BufferedReader in = new BufferedReader(new FileReader(File));
 			String line = in.readLine();
 
 			while (line != null) {
@@ -246,14 +331,14 @@ public class Main {
 				for (int i = 0; i < tmp.length; i++) {
 					wordList.add(tmp[i].toLowerCase());
 				}
-				training.add(wordList);
+				sent.add(wordList);
 				line = in.readLine();
 			}
 			in.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return training;
+		return sent;
 	}
 
 	public static String readGrammar(String grammarFile, ArrayList<String> terminals, ArrayList<String> nonTerminals,
@@ -318,8 +403,9 @@ public class Main {
 		}
 		return start;
 	}
-	
-	public static void saveGrammars(String grammarFile, ArrayList<String> terminals, ArrayList<String> nonTerminals, HashMap<String, Double> distribution) {
+
+	public static void saveGrammars(String grammarFile, ArrayList<String> terminals, ArrayList<String> nonTerminals,
+			HashMap<String, Double> distribution, String start) {
 		try {
 			FileWriter writer = new FileWriter(grammarFile);
 			String ters = "";
@@ -328,13 +414,12 @@ public class Main {
 				ters = ters + terminals.get(i) + " ";
 			}
 			for (int i = 0; i < nonTerminals.size(); i++) {
-				nonTers = nonTers + i + " ";
+				nonTers = nonTers + nonTerminals.get(i) + " ";
 			}
 			writer.write(ters.substring(0, ters.length() - 1) + "\n");
 			writer.write(nonTers.substring(0, nonTers.length() - 1) + "\n");
-			writer.write("0\n");
-			
-			
+			writer.write(start + "\n");
+
 			Iterator iter = distribution.entrySet().iterator();
 			String rule;
 			double prob;
@@ -342,9 +427,9 @@ public class Main {
 				Map.Entry entry = (Map.Entry) iter.next();
 				rule = (String) entry.getKey();
 				prob = (double) entry.getValue();
-				writer.write(prob + " "+ rule +"\n");
+				writer.write(prob + " " + rule + "\n");
 			}
-			
+
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -373,37 +458,37 @@ public class Main {
 				for (int j = 0; j < num; j++) {
 					for (int k = 0; k < num; k++) {
 						rd = r.nextDouble();
-						
+
 						if (j == num - 1 && k == num - 1) {
 							rd = prob;
 						} else {
 							while (prob <= rd) {
-								rd = rd / 10.0;
+								rd = rd / 1000.0;
 							}
 							prob = prob - rd;
 						}
-						
+
 						writer.write(rd + " " + i + " -> " + j + " " + k + "\n");
-						
-						//writer.write();
+
+						// writer.write();
 					}
 				}
 				prob = 1.0;
 				for (int j = 0; j < terminals.size(); j++) {
 					rd = r.nextDouble();
-					
+
 					if (j == terminals.size()) {
 						rd = prob;
 					} else {
 						while (prob <= rd) {
-							rd = rd / 10.0;
+							rd = rd / 1000.0;
 						}
 						prob = prob - rd;
 					}
-					
+
 					writer.write(rd + " " + i + " -> " + terminals.get(j) + "\n");
 				}
-				
+
 			}
 			writer.close();
 		} catch (IOException e) {
