@@ -4,29 +4,36 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Random;
 
 public class Main {
-
+	public static boolean generateGrammer = false;
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String grammarFile = "grammar2.txt";
-		String trainingFile = "train2.txt";
-		String testFile = "test.txt";
-		//app1(grammarFile, trainingFile, testFile);
-		app2(grammarFile, trainingFile, testFile);
-		// app3(grammarFile, trainingFile, testFile);
+		String grammarFile = "grammar1.txt";
+		String updateGrammarFile = "grammar1_up.txt";
+		String trainingFile = "train1.txt";
+		String testFile = "test1.txt";
+		app1(grammarFile, trainingFile, updateGrammarFile);
+		// app2(grammarFile, trainingFile, updateGrammarFile);
+		// app3(grammarFile, trainingFile, updateGrammarFile);
 
 	}
 
-	public static void app1(String grammarFile, String trainingFile, String testFile) {
-		// String[] alphabet = { "a", "b" };
-		// createPalindromesGrammar(grammarFile, 2, alphabet);
-		app2(grammarFile, trainingFile, testFile);
+	public static void app1(String grammarFile, String trainingFile, String updateGrammarFile) {
+		if (generateGrammer) {
+			ArrayList<String> terminals = new ArrayList<String>();
+			terminals.add("a");
+			terminals.add("b");
+			createGrammars(grammarFile, 5, terminals);
+		}
+		app2(grammarFile, trainingFile, updateGrammarFile);
 		
-
 	}
 
-	public static void app2(String grammarFile, String trainingFile, String testFile) {
+	public static void app2(String grammarFile, String trainingFile, String updateGrammarFile) {
 		ArrayList<String> terminals = new ArrayList<String>();
 		ArrayList<String> nonTerminals = new ArrayList<String>();
 		HashMap<String, ArrayList<String>> productionRulesLKey = new HashMap<String, ArrayList<String>>();
@@ -46,19 +53,17 @@ public class Main {
 					expectation(inside, outside, terminals, nonTerminals, productionRulesLKey, distribution, eStep, sent,
 							start);
 				} else {
-					//System.out.println(sent);
+					System.out.println(sent);
 				}
 				
-				//System.out.println(eStep);
-				//System.out.println(inside[0][1].getProb());
 			}
 			maximization(eStep, nonTerminals, productionRulesLKey, distribution);
-
+			saveGrammars(updateGrammarFile, terminals, nonTerminals, distribution);
 			System.out.println(distribution);
 		}
 	}
 
-	public static void app3(String grammarFile, String trainingFile, String testFile) {
+	public static void app3(String grammarFile, String trainingFile, String updateGrammarFile) {
 
 	}
 
@@ -69,9 +74,8 @@ public class Main {
 			ArrayList<String> rightHandSide = productionRulesLKey.get(lhs);
 			for (int m = 0; m < rightHandSide.size(); m++) {
 				String rhs = rightHandSide.get(m);
-				String rule = lhs + "->" + rhs;
+				String rule = lhs + " -> " + rhs;
 				distribution.put(rule, eStep.get(rule) / eStep.get(lhs));
-
 			}
 		}
 	}
@@ -98,7 +102,7 @@ public class Main {
 			for (int m = 0; m < rightHandSide.size(); m++) {
 				String rhs = rightHandSide.get(m);
 				String[] children = rhs.split("\\s+");
-				String rule = lhs + "->" + rhs;
+				String rule = lhs + " -> " + rhs;
 				double numerator = 0.0;
 				double pRule = distribution.get(rule);
 				for (int i = 0; i < inside.length - 1; i++) {
@@ -154,7 +158,7 @@ public class Main {
 							String rhs = rightHandSide.get(n);
 							String[] children = rhs.split("\\s+");
 							if (children.length == 2) {
-								String rule = lhs + "->" + rhs;
+								String rule = lhs + " -> " + rhs;
 								for (int k = i + 1; k <= j - 1; k++) {
 									double prob = outside[i][j].getProbability(lhs)
 											* inside[k][j].getProbability(children[1]) * distribution.get(rule);
@@ -191,7 +195,7 @@ public class Main {
 			ArrayList<String> heads = productionRulesRKey.get(word);
 			for (int m = 0; m < heads.size(); m++) {
 				String lhs = heads.get(m);
-				String rule = lhs + "->" + word;
+				String rule = lhs + " -> " + word;
 				double prob = distribution.get(rule);
 				inside[i][j].addItem(lhs, prob);
 				// System.out.println(prob + " " + rule);
@@ -212,7 +216,7 @@ public class Main {
 								ArrayList<String> heads = productionRulesRKey.get(rhs);
 								for (int x = 0; x < heads.size(); x++) {
 									String lhs = heads.get(x);
-									String rule = lhs + "->" + rhs;
+									String rule = lhs + " -> " + rhs;
 									double prob = distribution.get(rule) * inside[i][k].getProbability(leftChild)
 											* inside[k][j].getProbability(rightChild);
 									inside[i][j].addItem(lhs, prob);
@@ -303,7 +307,7 @@ public class Main {
 						productionRulesLKey.put(lhs, tmpList);
 					}
 
-					distribution.put(lhs + "->" + rhs, Double.parseDouble(tmp[0]));
+					distribution.put(lhs + " -> " + rhs, Double.parseDouble(tmp[0]));
 				}
 				line = in.readLine();
 				count = count + 1;
@@ -314,19 +318,93 @@ public class Main {
 		}
 		return start;
 	}
+	
+	public static void saveGrammars(String grammarFile, ArrayList<String> terminals, ArrayList<String> nonTerminals, HashMap<String, Double> distribution) {
+		try {
+			FileWriter writer = new FileWriter(grammarFile);
+			String ters = "";
+			String nonTers = "";
+			for (int i = 0; i < terminals.size(); i++) {
+				ters = ters + terminals.get(i) + " ";
+			}
+			for (int i = 0; i < nonTerminals.size(); i++) {
+				nonTers = nonTers + i + " ";
+			}
+			writer.write(ters.substring(0, ters.length() - 1) + "\n");
+			writer.write(nonTers.substring(0, nonTers.length() - 1) + "\n");
+			writer.write("0\n");
+			
+			
+			Iterator iter = distribution.entrySet().iterator();
+			String rule;
+			double prob;
+			while (iter.hasNext()) {
+				Map.Entry entry = (Map.Entry) iter.next();
+				rule = (String) entry.getKey();
+				prob = (double) entry.getValue();
+				writer.write(prob + " "+ rule +"\n");
+			}
+			
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
-	public static void createPalindromesGrammar(String grammarFile, int num, String[] alphabet) {
+	public static void createGrammars(String grammarFile, int num, ArrayList<String> terminals) {
 
 		try {
 			FileWriter writer = new FileWriter(grammarFile);
-			String tmp = "";
-			for (int i = 0; i < alphabet.length; i++) {
-				tmp = tmp + alphabet[i] + " ";
+			String ters = "";
+			String nonTers = "";
+			for (int i = 0; i < terminals.size(); i++) {
+				ters = ters + terminals.get(i) + " ";
 			}
-			writer.write(tmp.substring(0, tmp.length() - 1) + "\n");
-			writer.write("Hello Kuka:\n");
-			writer.write("  My name is coolszy!\n");
-			writer.write("  I like you and miss you��");
+			for (int i = 0; i < num; i++) {
+				nonTers = nonTers + i + " ";
+			}
+			writer.write(ters.substring(0, ters.length() - 1) + "\n");
+			writer.write(nonTers.substring(0, nonTers.length() - 1) + "\n");
+			writer.write("0\n");
+			Random r = new Random();
+			double rd = 0.0;
+			for (int i = 0; i < num; i++) {
+				double prob = 1.0;
+				for (int j = 0; j < num; j++) {
+					for (int k = 0; k < num; k++) {
+						rd = r.nextDouble();
+						
+						if (j == num - 1 && k == num - 1) {
+							rd = prob;
+						} else {
+							while (prob <= rd) {
+								rd = rd / 10.0;
+							}
+							prob = prob - rd;
+						}
+						
+						writer.write(rd + " " + i + " -> " + j + " " + k + "\n");
+						
+						//writer.write();
+					}
+				}
+				prob = 1.0;
+				for (int j = 0; j < terminals.size(); j++) {
+					rd = r.nextDouble();
+					
+					if (j == terminals.size()) {
+						rd = prob;
+					} else {
+						while (prob <= rd) {
+							rd = rd / 10.0;
+						}
+						prob = prob - rd;
+					}
+					
+					writer.write(rd + " " + i + " -> " + terminals.get(j) + "\n");
+				}
+				
+			}
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
