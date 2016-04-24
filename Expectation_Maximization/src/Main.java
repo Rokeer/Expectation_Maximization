@@ -9,11 +9,11 @@ public class Main {
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-		String grammarFile = "grammar.txt";
-		String trainingFile = "train.txt";
+		String grammarFile = "grammar2.txt";
+		String trainingFile = "train2.txt";
 		String testFile = "test.txt";
-		app1(grammarFile, trainingFile, testFile);
-		// app2(grammarFile, trainingFile, testFile);
+		//app1(grammarFile, trainingFile, testFile);
+		app2(grammarFile, trainingFile, testFile);
 		// app3(grammarFile, trainingFile, testFile);
 
 	}
@@ -21,7 +21,12 @@ public class Main {
 	public static void app1(String grammarFile, String trainingFile, String testFile) {
 		// String[] alphabet = { "a", "b" };
 		// createPalindromesGrammar(grammarFile, 2, alphabet);
+		app2(grammarFile, trainingFile, testFile);
+		
 
+	}
+
+	public static void app2(String grammarFile, String trainingFile, String testFile) {
 		ArrayList<String> terminals = new ArrayList<String>();
 		ArrayList<String> nonTerminals = new ArrayList<String>();
 		HashMap<String, ArrayList<String>> productionRulesLKey = new HashMap<String, ArrayList<String>>();
@@ -31,26 +36,102 @@ public class Main {
 				distribution);
 		ArrayList<ArrayList<String>> training = readTraining(trainingFile);
 		ArrayList<String> sent;
-		for (int i = 0; i < training.size(); i++) {
-			sent = training.get(i);
-			Cell[][] inside = calInside(sent, productionRulesRKey, distribution);
-			Cell[][] outside = calOutside(sent, productionRulesLKey, distribution, inside, start);
+		for (int itr = 0; itr < 100; itr++) {
+			HashMap<String, Double> eStep = new HashMap<String, Double>();
+			for (int i = 0; i < training.size(); i++) {
+				sent = training.get(i);
+				Cell[][] inside = calInside(sent, productionRulesRKey, distribution);
+				if (inside[0][sent.size()].getProbability(start) > 0) {
+					Cell[][] outside = calOutside(sent, productionRulesLKey, distribution, inside, start);
+					expectation(inside, outside, terminals, nonTerminals, productionRulesLKey, distribution, eStep, sent,
+							start);
+				} else {
+					//System.out.println(sent);
+				}
+				
+				//System.out.println(eStep);
+				//System.out.println(inside[0][1].getProb());
+			}
+			maximization(eStep, nonTerminals, productionRulesLKey, distribution);
+
+			System.out.println(distribution);
 		}
-
-		// System.out.println(productionRulesLKey);
-	}
-
-	public static void app2(String grammarFile, String trainingFile, String testFile) {
-
 	}
 
 	public static void app3(String grammarFile, String trainingFile, String testFile) {
 
 	}
 
-	public static Cell[][] calOutside(ArrayList<String> sent,
-			HashMap<String, ArrayList<String>> productionRulesLKey, HashMap<String, Double> distribution,
-			Cell[][] inside, String start) {
+	public static void maximization(HashMap<String, Double> eStep, ArrayList<String> nonTerminals,
+			HashMap<String, ArrayList<String>> productionRulesLKey, HashMap<String, Double> distribution) {
+		for (int l = 0; l < nonTerminals.size(); l++) {
+			String lhs = nonTerminals.get(l);
+			ArrayList<String> rightHandSide = productionRulesLKey.get(lhs);
+			for (int m = 0; m < rightHandSide.size(); m++) {
+				String rhs = rightHandSide.get(m);
+				String rule = lhs + "->" + rhs;
+				distribution.put(rule, eStep.get(rule) / eStep.get(lhs));
+
+			}
+		}
+	}
+
+	public static void expectation(Cell[][] inside, Cell[][] outside, ArrayList<String> terminals,
+			ArrayList<String> nonTerminals, HashMap<String, ArrayList<String>> productionRulesLKey,
+			HashMap<String, Double> distribution, HashMap<String, Double> eStep, ArrayList<String> sent, String start) {
+		for (int l = 0; l < nonTerminals.size(); l++) {
+			String lhs = nonTerminals.get(l);
+			double denominator = 0.0;
+			for (int i = 0; i < inside.length - 1; i++) {
+				for (int j = 1; j < inside.length; j++) {
+					denominator = denominator + inside[i][j].getProbability(lhs) * outside[i][j].getProbability(lhs);
+				}
+			}
+			denominator = denominator / inside[0][sent.size()].getProbability(start);
+			if (eStep.containsKey(lhs)) {
+				eStep.put(lhs, eStep.get(lhs) + denominator);
+			} else {
+				eStep.put(lhs, denominator);
+			}
+			// System.out.println(eStep.get(lhs));
+			ArrayList<String> rightHandSide = productionRulesLKey.get(lhs);
+			for (int m = 0; m < rightHandSide.size(); m++) {
+				String rhs = rightHandSide.get(m);
+				String[] children = rhs.split("\\s+");
+				String rule = lhs + "->" + rhs;
+				double numerator = 0.0;
+				double pRule = distribution.get(rule);
+				for (int i = 0; i < inside.length - 1; i++) {
+					if (children.length == 2) {
+						for (int j = 1; j < inside.length; j++) {
+							double tmp = 0.0;
+							for (int k = i + 1; k <= j - 1; k++) {
+								tmp = tmp + inside[i][k].getProbability(children[0])
+										* inside[k][j].getProbability(children[1]);
+							}
+							numerator = numerator + outside[i][j].getProbability(lhs) * pRule * tmp;
+						}
+					} else {
+						if (sent.get(i).equals(rhs)) {
+							numerator = numerator
+									+ outside[i][i + 1].getProbability(lhs) * inside[i][i + 1].getProbability(lhs);
+						}
+					}
+
+				}
+				numerator = numerator / inside[0][sent.size()].getProbability(start);
+				if (eStep.containsKey(rule)) {
+					eStep.put(rule, eStep.get(rule) + numerator);
+				} else {
+					eStep.put(rule, numerator);
+				}
+
+			}
+		}
+	}
+
+	public static Cell[][] calOutside(ArrayList<String> sent, HashMap<String, ArrayList<String>> productionRulesLKey,
+			HashMap<String, Double> distribution, Cell[][] inside, String start) {
 		int length = sent.size();
 		Cell[][] outside = new Cell[length + 1][length + 1];
 		for (int i = 0; i < length; i++) {
@@ -78,9 +159,9 @@ public class Main {
 									double prob = outside[i][j].getProbability(lhs)
 											* inside[k][j].getProbability(children[1]) * distribution.get(rule);
 									outside[i][k].addItem(children[0], prob);
-									
-									prob = outside[i][j].getProbability(lhs)
-											* inside[i][k].getProbability(children[0]) * distribution.get(rule);
+
+									prob = outside[i][j].getProbability(lhs) * inside[i][k].getProbability(children[0])
+											* distribution.get(rule);
 									outside[k][j].addItem(children[1], prob);
 								}
 							}
@@ -88,15 +169,14 @@ public class Main {
 					}
 				}
 
-				
 			}
 		}
-		System.out.println(outside[1][3].getProb());
+		// System.out.println(outside[1][3].getProb());
 		return outside;
 	}
 
-	public static Cell[][] calInside(ArrayList<String> sent,
-			HashMap<String, ArrayList<String>> productionRulesRKey, HashMap<String, Double> distribution) {
+	public static Cell[][] calInside(ArrayList<String> sent, HashMap<String, ArrayList<String>> productionRulesRKey,
+			HashMap<String, Double> distribution) {
 		int length = sent.size();
 		Cell[][] inside = new Cell[length + 1][length + 1];
 		for (int i = 0; i < length; i++) {
@@ -160,7 +240,7 @@ public class Main {
 				String[] tmp = line.split("\\s+");
 				ArrayList<String> wordList = new ArrayList<String>();
 				for (int i = 0; i < tmp.length; i++) {
-					wordList.add(tmp[i]);
+					wordList.add(tmp[i].toLowerCase());
 				}
 				training.add(wordList);
 				line = in.readLine();
