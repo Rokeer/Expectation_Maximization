@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Random;
 
 public class Main {
-	public static boolean generateGrammer = true;
+	public static boolean generateGrammer = false;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -91,7 +91,7 @@ public class Main {
 			if (eva > oldEva || oldEva == 1.0) {
 				saveGrammars(updateGrammarFile, terminals, nonTerminals, distribution, start);
 				System.out.println("Average Log Probability: " + eva);
-
+				System.out.println(distribution);
 				if (eva - oldEva < 0.000000001 && oldEva != 1.0) {
 					System.out.println("Done!");
 					stop = true;
